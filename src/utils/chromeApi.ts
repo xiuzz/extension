@@ -417,33 +417,33 @@ export const accountApi = {
     }
   },
 
-  // 检查是否有账户，没有则初始化
-  async initializeIfNeeded(): Promise<boolean> {
-    try {
-      return new Promise((resolve) => {
-        chrome.storage.local.get(['accounts', 'currentAccountId'], (result: any) => {
-          // 如果已经有账户和选中的账户ID，则无需初始化
-          if (result.accounts && Array.isArray(result.accounts) && result.accounts.length > 0 && result.currentAccountId) {
-            resolve(false); // 返回false表示不需要初始化
-            return;
-          }
-          
-          // 需要初始化
-          const initialState = {
-            accounts: DEFAULT_ACCOUNTS,
-            currentAccountId: "1"
-          };
-          
-          chrome.storage.local.set(initialState, () => {
-            resolve(true); // 返回true表示已初始化
-          });
-        });
-      });
-    } catch (error) {
-      console.error('初始化账户失败:', error);
-      return false;
-    }
-  }
+  // // 检查是否有账户，没有则初始化
+  // async initializeIfNeeded(): Promise<boolean> {
+  //   try {
+  //     return new Promise((resolve) => {
+  //       chrome.storage.local.get(['accounts', 'currentAccountId'], (result: any) => {
+  //         // 如果已经有账户和选中的账户ID，则无需初始化
+  //         if (result.accounts && Array.isArray(result.accounts) && result.accounts.length > 0 && result.currentAccountId) {
+  //           resolve(false); // 返回false表示不需要初始化
+  //           return;
+  //         }
+  //
+  //         // 需要初始化
+  //         const initialState = {
+  //           accounts: DEFAULT_ACCOUNTS,
+  //           currentAccountId: "1"
+  //         };
+  //
+  //         chrome.storage.local.set(initialState, () => {
+  //           resolve(true); // 返回true表示已初始化
+  //         });
+  //       });
+  //     });
+  //   } catch (error) {
+  //     console.error('初始化账户失败:', error);
+  //     return false;
+  //   }
+  // }
 };
 
 // 扩展通用API

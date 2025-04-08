@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { accountStorage } from '../utils/accountStorage';
+import { accountStorage } from '../chromeStore/accountStorage.ts';
 
 const CreateAccount: React.FC = () => {
   const [accountName, setAccountName] = useState('');

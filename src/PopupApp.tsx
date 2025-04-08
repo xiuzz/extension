@@ -1,9 +1,7 @@
-import { useState, useEffect } from "react";
 import {
 	HashRouter as Router,
 	Route,
 	Routes,
-	useNavigate,
 } from "react-router-dom";
 import CreatePassword from "./components/CreatePassword";
 import Home from "./components/Home";
@@ -11,7 +9,7 @@ import Connect from "./components/Connect";
 import Sign from "./components/Sign";
 import IpfsSettings from "./components/IpfsSettings";
 import CreateAccount from "./components/CreateAccount";
-import { accountStorage } from "./utils/accountStorage";
+import { accountStorage } from "./chromeStore/accountStorage.ts";
 
 import { createRoot } from "react-dom/client";
 

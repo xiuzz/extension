@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Account } from '../utils/accountStorage';
+import { Account } from '../chromeStore/accountStorage.ts';
 
 interface AccountHeaderProps {
   currentAccount: Account;

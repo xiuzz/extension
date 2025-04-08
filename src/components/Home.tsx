@@ -5,7 +5,7 @@ import {
   IpfsFile,
   IpfsNode,
 } from "../utils/chromeApi";
-import { Account, accountStorage } from "../utils/accountStorage";
+import { Account, accountStorage } from "../chromeStore/accountStorage.ts";
 import AccountHeader from "./AccountHeader";
 import IpfsFileList from "./IpfsFileList";
 

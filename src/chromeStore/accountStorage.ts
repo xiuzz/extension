@@ -6,6 +6,7 @@ export interface Account {
   name: string;
   address: string;
   icon?: string;
+  encryptedWallet?: string | null; // 新增字段，用于存储加密后的钱包
 }
 
 // 初始化localforage实例专门用于账户管理
@@ -16,6 +17,9 @@ const accountsStore = localforage.createInstance({
 
 // 账户相关API
 export const accountStorage = {
+  async setItem(key: string, value: any): Promise<void> {
+    return await accountsStore.setItem(key, value);
+  },
   // 获取所有账户
   async getAccounts(): Promise<Account[]> {
     try {
@@ -82,7 +86,9 @@ export const accountStorage = {
     try {
       // 获取现有账户
       const accounts = await this.getAccounts();
-      
+      if (!accountName) {
+        accountName = '账户' + (accounts.length + 1);
+      }
       // 生成随机地址
       const randomAddress = '0x' + Array.from(crypto.getRandomValues(new Uint8Array(20)))
         .map(b => b.toString(16).padStart(2, '0'))
@@ -90,12 +96,13 @@ export const accountStorage = {
       
       // 创建新账户ID (基于时间戳确保唯一)
       const newId = Date.now().toString();
-      
+      const encryptedWallet : string | null = await accountsStore.getItem<string>('encryptedWallet');
       // 新账户对象
       const newAccount: Account = {
         id: newId,
         name: accountName,
-        address: randomAddress
+        address: randomAddress,
+        encryptedWallet: encryptedWallet
       };
       
       // 添加到账户列表
@@ -169,8 +176,8 @@ export const accountStorage = {
     }
   },
 
-  // 初始化账户(如果需要)
-  async initializeIfNeeded(): Promise<boolean> {
+  // 初始化账户
+  async initializeIfNeeded(encryptedWallet: string): Promise<boolean> {
     try {
       const accounts = await this.getAccounts();
       const currentAccountId = await this.getCurrentAccountId();
@@ -187,10 +194,11 @@ export const accountStorage = {
       
       const defaultAccount: Account = {
         id: "1",
-        name: "我的账户",
-        address: randomAddress
+        name: "账户1",
+        address: randomAddress,
+        encryptedWallet: encryptedWallet
       };
-      
+
       // 保存默认账户
       await this.saveAccounts([defaultAccount]);
       await this.setCurrentAccountId("1");
