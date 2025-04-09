@@ -3,7 +3,7 @@ import {
 	Route,
 	Routes,
 } from "react-router-dom";
-import CreatePassword from "./components/CreatePassword";
+import CreateWalletPassword from "./components/CreateWalletPassword.tsx";
 import Home from "./components/Home";
 import Connect from "./components/Connect";
 import Sign from "./components/Sign";
@@ -17,7 +17,6 @@ async function initPopup(): Promise<void> {
 	try {
 		// 初始化localForage账户存储
 		await accountStorage.migrateFromLocalStorage();
-		await accountStorage.initializeIfNeeded();
 		
 		// 渲染应用
 		// biome-ignore lint/style/noNonNullAssertion: <explanation>
@@ -82,7 +81,7 @@ export default function PopupApp(): JSX.Element {
 					path="/create-password"
 					element={
 						<RootWrapperExtension>
-							<CreatePassword />
+							<CreateWalletPassword />
 						</RootWrapperExtension>
 					}
 				/>

@@ -1,7 +1,5 @@
 // 存储已连接的网站
 const connectedSites = new Set();
-// 模拟账户信息
-let accounts = [{ address: "0x742d35Cc6634C0532925a3b844Bc454e4438f44e" }];
 // 存储等待响应的请求
 const pendingRequests = {};
 // 存储上传文件的缓存 (模拟)

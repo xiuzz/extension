@@ -22,9 +22,7 @@ const CreateAccount: React.FC = () => {
           // 如果没有账户，初始化默认账户
           setAccountName('我的账户');
           setIsCreating(true);
-          
-          // 初始化默认账户
-          await accountStorage.initializeIfNeeded();
+
           
           // 延迟跳转，让用户看到创建过程
           setTimeout(() => {

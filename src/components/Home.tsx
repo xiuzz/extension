@@ -25,9 +25,6 @@ const Home: React.FC = () => {
 
         // 尝试迁移localStorage中的账户数据到localForage
         await accountStorage.migrateFromLocalStorage();
-        
-        // 初始化账户如果需要
-        await accountStorage.initializeIfNeeded();
 
         // 获取当前激活的IPFS节点
         const node = await extensionApi.getCurrentIpfsNode();
@@ -41,9 +38,9 @@ const Home: React.FC = () => {
         const allAccounts = await accountStorage.getAccounts();
         setAccounts(allAccounts);
 
-        // 检查是否有账户，没有则重定向到创建账户页面
-        if (!allAccounts || allAccounts.length === 0) {
-          navigate("/create-account");
+        // 检查是否有账户，没有则重定向到创建钱包
+        if (!allAccounts || allAccounts.length === 0)  {
+          navigate("/create-password");
           return;
         }
 

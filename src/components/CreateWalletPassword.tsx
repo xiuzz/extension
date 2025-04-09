@@ -5,7 +5,7 @@ import { accountApi } from "../utils/chromeApi";
 import {ethers} from "ethers";
 import {accountStorage} from "../chromeStore/accountStorage.ts";
 
-const CreatePassword: React.FC = () => {
+const CreateWalletPassword: React.FC = () => {
     const [password, setPassword] = useState("");
     const [confirmPassword, setConfirmPassword] = useState("");
     const [showPassword, setShowPassword] = useState(false);
@@ -235,4 +235,4 @@ const CreatePassword: React.FC = () => {
     );
 };
 
-export default CreatePassword;
+export default CreateWalletPassword;

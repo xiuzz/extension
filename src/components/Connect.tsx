@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useLocation } from "react-router-dom";
 
 // 声明chrome类型，避免TypeScript错误
 declare const chrome: any;
