@@ -26,9 +26,9 @@ export interface IpfsFile {
 
 // 默认账户信息
 export const DEFAULT_ACCOUNTS: Account[] = [
-  { 
-    id: "1", 
-    name: "Account 1", 
+  {
+    id: "1",
+    name: "Account 1",
     address: "0x742d35Cc6634C0532925a3b844Bc454e4438f44e"
   },
   {
@@ -584,6 +584,102 @@ export const ipfsNodeApi = {
         success: false,
         message: error instanceof Error ? error.message : '未知错误'
       };
+    }
+  },
+
+  //存储相关
+  async put(value: ArrayBuffer): Promise<ArrayBuffer> {
+    try {
+      // 检查Chrome API是否可用
+      if (!isChromeApiAvailable()) {
+        throw new Error('Chrome API不可用');
+      }
+
+      // 获取当前选中的IPFS节点
+      const currentNode = await this.getSelectedNodeId();
+      const node = DEFAULT_IPFS_NODES.find(n => n.id === currentNode);
+      if (!node) {
+        throw new Error('未找到选中的IPFS节点');
+      }
+
+      // 将数据转换为Blob
+      const blob = new Blob([value.toString()], { type: 'application/json' });
+
+      // 创建FormData对象
+      const formData = new FormData();
+      formData.append('file', blob);
+
+      // 发送到IPFS网关
+      const response = await fetch(`${node.url}/api/v0/add`, {
+        method: 'POST',
+        body: formData
+      });
+
+      if (!response.ok) {
+        throw new Error(`IPFS上传失败: ${response.statusText}`);
+      }
+
+      const result = await response.json();
+      if (!result.Hash) {
+        throw new Error('IPFS上传失败: 未返回CID');
+      }
+
+      console.log(`数据已成功上传到IPFS，CID: ${result.Hash}`);
+      return result.Hash
+    } catch (error) {
+      console.error('存储数据到IPFS失败:', error);
+      throw error;
+    }
+  },
+
+  async get(key: string): Promise<any> {
+    try {
+      // 检查Chrome API是否可用
+      if (!isChromeApiAvailable()) {
+        throw new Error('Chrome API不可用');
+      }
+
+      // 获取当前选中的IPFS节点
+      const currentNode = await this.getSelectedNodeId();
+      const node = DEFAULT_IPFS_NODES.find(n => n.id === currentNode);
+      if (!node) {
+        throw new Error('未找到选中的IPFS节点');
+      }
+
+      // 从IPFS网关获取数据
+      const response = await fetch(`${node.url}/api/v0/cat?arg=${key}`);
+      if (!response.ok) {
+        throw new Error(`IPFS获取数据失败: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('从IPFS获取数据失败:', error);
+      throw error;
+    }
+  },
+
+  async has(key: string): Promise<boolean> {
+    try {
+      // 检查Chrome API是否可用
+      if (!isChromeApiAvailable()) {
+        throw new Error('Chrome API不可用');
+      }
+
+      // 获取当前选中的IPFS节点
+      const currentNode = await this.getSelectedNodeId();
+      const node = DEFAULT_IPFS_NODES.find(n => n.id === currentNode);
+      if (!node) {
+        throw new Error('未找到选中的IPFS节点');
+      }
+
+      // 检查IPFS网关是否存在该key
+      const response = await fetch(`${node.url}/api/v0/object/stat?arg=${key}`);
+      return response.ok;
+    } catch (error) {
+      console.error('检查IPFS数据存在失败:', error);
+      return false;
     }
   }
 }; 

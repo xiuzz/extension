@@ -1,6 +1,10 @@
 import React, { useState, useRef } from 'react';
 import { IpfsFile } from '../utils/chromeApi';
 import localforage from 'localforage';
+import {ZLDDir, ZLDFile} from "../fileObject/nodeImpl.ts";
+import {FsObjectHelper} from "../fileObject/dag.ts";
+import {zStore} from "../p2pStore/kvStoreImpl.ts";
+import {arrayBufferToString} from "../utils/globelTools.ts";
 
 // 初始化localforage实例
 const ipfsFilesStore = localforage.createInstance({
@@ -18,93 +22,94 @@ const IpfsFileUpload: React.FC<IpfsFileUploadProps> = ({ onFileUploaded }) => {
   const [dragActive, setDragActive] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (files && files.length > 0) {
-      await uploadFile(files[0]);
-    }
-  };
-
-  const handleDrag = (e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    e.stopPropagation();
-    
-    if (e.type === 'dragenter' || e.type === 'dragover') {
-      setDragActive(true);
-    } else if (e.type === 'dragleave') {
-      setDragActive(false);
-    }
-  };
-
-  const handleDrop = async (e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setDragActive(false);
-    
-    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-      await uploadFile(e.dataTransfer.files[0]);
-    }
-  };
-
-  // 生成随机IPFS CID (模拟)
-  const generateFakeCid = (): string => {
-    // IPFS CID v1格式通常以 "bafy" 开头
-    return 'bafybeie' + Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
-  };
-
-  // 读取文件内容为ArrayBuffer
-  const readFileAsArrayBuffer = (file: File): Promise<ArrayBuffer> => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => {
-        if (reader.result instanceof ArrayBuffer) {
-          resolve(reader.result);
-        } else {
-          reject(new Error('无法读取文件'));
-        }
-      };
-      reader.onerror = () => reject(reader.error);
-      reader.readAsArrayBuffer(file);
-    });
-  };
-
-  const uploadFile = async (file: File) => {
+  const uploadFiles = async (files: File[]) => {
     setIsUploading(true);
     setError(null);
-    
     try {
-      // 模拟上传延迟
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // 生成CID
-      const cid = generateFakeCid();
-      
-      // 读取文件内容
-      const fileContent = await readFileAsArrayBuffer(file);
-      
+      let stack: ZLDDir[] = [];
+      for (let i = 0; i < files.length; i++) {
+          let file = files[i];
+          let path = file.webkitRelativePath;
+          if (path) {
+            let parts = path.split('/');
+            let tmpDirPath = "";
+            if (parts.length > 1) {
+              tmpDirPath = parts.slice(0, -1).join('/');
+            }
+            if (stack.length && stack[stack.length - 1].name() !== tmpDirPath) {
+              let tmp = stack[stack.length - 1];
+              let tmp_parts = tmp.name().split('/');
+              let pos = -1;
+              for (let j = 0; j < tmp_parts.length - 1; j++) {
+                  if (tmp_parts[j] !== parts[j]) {
+                    pos = j;
+                    break;
+                  }
+              }
+              let backPathName = tmp_parts.slice(0, pos).join("/");
+              while (stack.length) {
+                if (stack[stack.length - 1].name() != backPathName) {
+                  let tmp = stack[stack.length - 1];
+                  stack.pop();
+                  let cur = stack[stack.length - 1];
+                  cur.addNode(tmp);
+                } else break;
+              }
+              for (let j = pos; j < parts.length-1; j++) {
+                let tmpDir = new ZLDDir(parts.slice(0, j+1).join("/"));
+                stack.push(tmpDir);
+              }
+            } else if (stack.length === 0) {
+                for (let j = 0; j < parts.length-1; j++) {
+                  let tmpDir = new ZLDDir(parts.slice(0, j+1).join("/"));
+                  stack.push(tmpDir);
+                }
+            }
+            const data = await readFileAsArrayBuffer(file);
+            let curFile = new ZLDFile(parts[parts.length - 1], data);
+            stack[stack.length - 1].addNode(curFile);
+          }
+      }
+      let tmp = stack[stack.length - 1];
+      let tmp_parts = tmp.name().split('/');
+      let backPathName = tmp_parts.slice(0, -1).join("/");
+      while (stack.length > 1) {
+        if (stack[stack.length - 1].name() != backPathName) {
+          let tmp = stack[stack.length - 1];
+          stack.pop();
+          let cur = stack[stack.length - 1];
+          cur.addNode(tmp);
+        } else break;
+      }
+      let src = stack[0];
+      const cidByte  = await FsObjectHelper.add(zStore, src);
+      let cid = "";
+      if (cidByte) {
+        cid = arrayBufferToString(cidByte)
+      }
       // 创建文件记录
       const ipfsFile: IpfsFile = {
         cid,
-        name: file.name,
-        size: file.size,
+        name: src.name(),
+        size: src.size(),
         timestamp: Date.now()
       };
-      
+
       // 存储文件元数据到历史记录
       try {
         // 获取现有历史记录
         const files = await ipfsFilesStore.getItem<IpfsFile[]>('uploadHistory') || [];
-        
+
         // 添加新文件到历史记录
         const updatedFiles = [ipfsFile, ...files].slice(0, 50); // 只保留最近50个
         await ipfsFilesStore.setItem('uploadHistory', updatedFiles);
-        
-        // 存储文件内容
-        await ipfsFilesStore.setItem(`file:${cid}`, {
-          content: fileContent,
-          type: file.type
-        });
-        
+
+        // // 存储文件内容
+        // await ipfsFilesStore.setItem(`file:${cid}`, {
+        //   content: fileContent,
+        //   type: file.type
+        // });
+
         // 触发回调
         if (onFileUploaded) {
           onFileUploaded(ipfsFile);
@@ -124,6 +129,116 @@ const IpfsFileUpload: React.FC<IpfsFileUploadProps> = ({ onFileUploaded }) => {
       }
     }
   };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    console.log(files);
+    if (files) {
+      // 处理所有文件（支持目录结构）
+      await uploadFiles(Array.from(files));
+    }
+  };
+
+  const handleDrag = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    if (e.type === 'dragenter' || e.type === 'dragover') {
+      setDragActive(true);
+    } else if (e.type === 'dragleave') {
+      setDragActive(false);
+    }
+  };
+
+  const handleDrop = async (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
+
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      console.log('Dropped files:', e.dataTransfer.files)
+      // await uploadFiles(e.dataTransfer.files);
+    }
+  };
+
+  // // 生成随机IPFS CID (模拟)
+  // const generateFakeCid = (): string => {
+  //   // IPFS CID v1格式通常以 "bafy" 开头
+  //   return 'bafybeie' + Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+  // };
+
+  // 读取文件内容为ArrayBuffer
+  const readFileAsArrayBuffer = (file: File): Promise<ArrayBuffer> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        if (reader.result instanceof ArrayBuffer) {
+          resolve(reader.result);
+        } else {
+          reject(new Error('无法读取文件'));
+        }
+      };
+      reader.onerror = () => reject(reader.error);
+      reader.readAsArrayBuffer(file);
+    });
+  };
+
+  // const uploadFile = async (file: File) => {
+  //   setIsUploading(true);
+  //   setError(null);
+  //
+  //   try {
+  //     // 模拟上传延迟
+  //     await new Promise(resolve => setTimeout(resolve, 1000));
+  //
+  //     // 生成CID
+  //     const cid = generateFakeCid();
+  //
+  //     // 读取文件内容
+  //     const fileContent = await readFileAsArrayBuffer(file);
+  //
+  //     // 创建文件记录
+  //     const ipfsFile: IpfsFile = {
+  //       cid,
+  //       name: file.name,
+  //       size: file.size,
+  //       timestamp: Date.now()
+  //     };
+  //
+  //     // 存储文件元数据到历史记录
+  //     try {
+  //       // 获取现有历史记录
+  //       const files = await ipfsFilesStore.getItem<IpfsFile[]>('uploadHistory') || [];
+  //
+  //       // 添加新文件到历史记录
+  //       const updatedFiles = [ipfsFile, ...files].slice(0, 50); // 只保留最近50个
+  //       await ipfsFilesStore.setItem('uploadHistory', updatedFiles);
+  //
+  //       // 存储文件内容
+  //       await ipfsFilesStore.setItem(`file:${cid}`, {
+  //         content: fileContent,
+  //         type: file.type
+  //       });
+  //
+  //       // 触发回调
+  //       if (onFileUploaded) {
+  //         onFileUploaded(ipfsFile);
+  //       }
+  //     } catch (storageError) {
+  //       console.error('存储文件失败:', storageError);
+  //       throw new Error('存储文件失败');
+  //     }
+  //   } catch (err) {
+  //     console.error('Upload error:', err);
+  //     setError((err as Error).message || '上传失败');
+  //   } finally {
+  //     setIsUploading(false);
+  //     // 清除input的值，允许重新上传相同文件
+  //     if (fileInputRef.current) {
+  //       fileInputRef.current.value = '';
+  //     }
+  //   }
+  // };
 
   const handleButtonClick = () => {
     fileInputRef.current?.click();
@@ -155,6 +270,7 @@ const IpfsFileUpload: React.FC<IpfsFileUploadProps> = ({ onFileUploaded }) => {
           ref={fileInputRef}
           onChange={handleFileChange}
           style={{ display: 'none' }}
+          webkitdirectory="true"
         />
         {isUploading ? (
           <div>
@@ -180,7 +296,7 @@ const IpfsFileUpload: React.FC<IpfsFileUploadProps> = ({ onFileUploaded }) => {
         ) : (
           <>
             <div style={{ fontSize: '18px', marginBottom: '10px', color: '#fff' }}>
-              拖拽文件到此处 或 点击上传
+              点击上传或拖拽文件夹到此处
             </div>
             <div style={{ fontSize: '14px', color: '#aaa' }}>
               文件将通过IPFS分享，上传完成后会返回CID
@@ -188,7 +304,7 @@ const IpfsFileUpload: React.FC<IpfsFileUploadProps> = ({ onFileUploaded }) => {
           </>
         )}
       </div>
-      
+
       {error && (
         <div style={{
           color: '#ff5c5c',
@@ -203,4 +319,4 @@ const IpfsFileUpload: React.FC<IpfsFileUploadProps> = ({ onFileUploaded }) => {
   );
 };
 
-export default IpfsFileUpload; 
+export default IpfsFileUpload;

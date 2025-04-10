@@ -128,12 +128,12 @@
         return sendRequest('ipfs_switchNode', { nodeId });
       },
       
-      // 上传文件到IPFS (模拟)
+      // 上传文件到IPFS
       async add(content) {
         return sendRequest('ipfs_add', { content });
       },
       
-      // 从IPFS获取内容 (模拟)
+      // 从IPFS获取内容
       async get(cid) {
         return sendRequest('ipfs_get', { cid });
       },
